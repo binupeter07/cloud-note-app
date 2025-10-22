@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const os = require("os");
+import axios from "axios"
 
 dotenv.config();
 
@@ -25,6 +26,30 @@ mongoose
 const noteSchema = new mongoose.Schema({ title: String, content: String });
 const Note = mongoose.model("Note", noteSchema);
 
+let instanceId = "unknown";
+
+async function fetchInstanceId() {
+  try {
+    const tokenRes = await axios.put(
+      "http://169.254.169.254/latest/api/token",
+      null,
+      { headers: { "X-aws-ec2-metadata-token-ttl-seconds": "21600" } }
+    );
+    const token = tokenRes.data;
+
+    const idRes = await axios.get(
+      "http://169.254.169.254/latest/meta-data/instance-id",
+      { headers: { "X-aws-ec2-metadata-token": token } }
+    );
+
+    instanceId = idRes.data;
+  } catch (err) {
+    console.error("Could not fetch instance ID:", err.message);
+  }
+}
+
+fetchInstanceId();
+
 app.get("/", (_req, res) => {
   res.json({
     message: "Welcome to my Note App!",
@@ -46,6 +71,11 @@ app.get("/notes", async (_req, res, next) => {
   res.json(notes);
   } catch (e) { next(e); }
 });
+
+app.get("/instance", (req, res) => {
+  res.send(`Instance ID: ${instanceId}`);
+});
+
 
 app.get("/health", (_req, res) => res.status(200).send("ok"));
 
