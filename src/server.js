@@ -1,8 +1,8 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const dotenv = require("dotenv");
-const os = require("os");
-import axios from "axios"
+import express from "express";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import axios from "axios";
+import os from "os";
 
 dotenv.config();
 
@@ -10,9 +10,8 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGO_URI;
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/myprojectdb";
 
-// prove the file is running
 console.log("📦 Booting server.js...");
 console.log("ENV PORT =", PORT);
 console.log("ENV MONGO_URI =", MONGO_URI || "(missing)");
@@ -27,7 +26,6 @@ const noteSchema = new mongoose.Schema({ title: String, content: String });
 const Note = mongoose.model("Note", noteSchema);
 
 let instanceId = "unknown";
-
 async function fetchInstanceId() {
   try {
     const tokenRes = await axios.put(
@@ -36,18 +34,15 @@ async function fetchInstanceId() {
       { headers: { "X-aws-ec2-metadata-token-ttl-seconds": "21600" } }
     );
     const token = tokenRes.data;
-
     const idRes = await axios.get(
       "http://169.254.169.254/latest/meta-data/instance-id",
       { headers: { "X-aws-ec2-metadata-token": token } }
     );
-
     instanceId = idRes.data;
   } catch (err) {
     console.error("Could not fetch instance ID:", err.message);
   }
 }
-
 fetchInstanceId();
 
 app.get("/", (_req, res) => {
@@ -58,30 +53,23 @@ app.get("/", (_req, res) => {
   });
 });
 
+app.get("/id", (_req, res) => res.send(`Instance ID: ${instanceId}`));
+
 app.post("/notes", async (req, res, next) => {
-  try {
-    const note = await Note.create(req.body);
-    res.status(201).json(note);
-  } catch (e) { next(e); }
+  try { const note = await Note.create(req.body); res.status(201).json(note); }
+  catch (e) { next(e); }
 });
 
 app.get("/notes", async (_req, res, next) => {
-  try {
-    const notes = await Note.find();
-  res.json(notes);
-  } catch (e) { next(e); }
+  try { const notes = await Note.find(); res.json(notes); }
+  catch (e) { next(e); }
 });
 
-app.get("/instance", (req, res) => {
-  res.send(`Instance ID: ${instanceId}`);
-});
-
-
+app.get("/instance", (_req, res) => res.send(`Instance ID: ${instanceId}`));
 app.get("/health", (_req, res) => res.status(200).send("ok"));
 
 app.use((err, _req, res, _next) => {
-  console.error(err);
-  res.status(500).json({ error: err.message });
+  console.error(err); res.status(500).json({ error: err.message });
 });
 
 app.listen(PORT, () => console.log(`🚀 Server listening on port ${PORT}`));
